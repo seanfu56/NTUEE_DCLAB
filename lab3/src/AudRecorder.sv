@@ -54,17 +54,17 @@ always_comb begin
                 o_data_w  = 16'd0;
                 o_address_w = o_address_r;
             end
-            else if(counter_r <= 16) begin
+            else if(counter_r == 16) begin
                 state_w     = S_WAIT;
-                counter_w   = 5'd0;
+                counter_w   = 5'd1;
                 o_data_w    = {o_data_r[14:0],i_data};
-                o_address_w = o_address_r;
+                o_address_w = o_address_r + 20'd1;
             end
             else begin 
                 state_w     = state_r;
                 counter_w   = counter_r + 5'd1;
-                o_data_w    = o_data_r;
-                o_address_w = o_address_r + 20'd1;
+                o_data_w    = {o_data_r[14:0],i_data};
+                o_address_w = o_address_r;
             end
         end
         S_PAUSE: begin 

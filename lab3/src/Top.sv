@@ -52,13 +52,13 @@ module Top (
 );
 
 // design the FSM and states as you like
-parameter S_I2C        = 0;
-parameter S_IDLE       = 1;
-parameter S_RECD       = 2;
-parameter S_RECD_PAUSE = 3;
-parameter S_RECD_FIN   = 4;
-parameter S_PLAY       = 5;
-parameter S_PLAY_PAUSE = 6;
+parameter S_I2C        = 3'b000;
+parameter S_IDLE       = 3'b001;
+parameter S_RECD       = 3'b010;
+parameter S_RECD_PAUSE = 3'b011;
+parameter S_RECD_FIN   = 3'b100;
+parameter S_PLAY       = 3'b101;
+parameter S_PLAY_PAUSE = 3'b110;
 
 logic i2c_oen, i2c_sdat;
 logic [19:0] addr_record, addr_play;
@@ -99,7 +99,7 @@ assign o_fast_or_slow = o_fast_or_slow_w;
 assign o_sample = o_smaple_w;
 assign o_ten = o_ten_w;
 assign o_one = o_one_w;
-assign o_state = o_state_w;
+assign o_state = state_w;
 
 //FINISH
 
@@ -112,7 +112,7 @@ assign o_state = o_state_w;
 // sequentially sent out settings to initialize WM8731 with I2C protocal
 I2cInitializer init0(
 	.i_rst_n(i_rst_n),
-	.i_clk(i_clk_100K),
+	.i_clk(i_clk_100k),
 	.i_start(i2c_start),
 	.o_finished(i2c_finished),
 	.o_sclk(o_I2C_SCLK),
@@ -155,7 +155,9 @@ AudPlayer player0(
 AudRecorder recorder0(
 	.i_rst_n(i_rst_n), 
 	.i_clk(i_AUD_BCLK),
+	// .i_clk(i_clk_100k),
 	.i_lrc(i_AUD_ADCLRCK),
+	// .i_lrc(1'b0),
 	.i_start(state_r === S_RECD),
 	.i_pause(state_r === S_RECD_PAUSE),
 	.i_stop(state_r === S_RECD_FIN),
@@ -202,21 +204,23 @@ always_comb begin
 		end
 	end
 	S_RECD: begin
-		if(counter_r === freq) begin
-			counter_w = 32'd0;
-			seconds_w = seconds_r + 1;
-		end
-		else begin
-			counter_w = counter_r + 1;
-			seconds_w = seconds_r;
-		end
-		if(i_key_1) begin
+		// if(counter_r === freq) begin
+		// 	counter_w = 32'd0;
+		// 	seconds_w = seconds_r + 1;
+		// end
+		// else begin
+		// 	counter_w = counter_r + 1;
+		// 	seconds_w = seconds_r;
+		// end
+		counter_w = counter_r;
+		seconds_w = seconds_r;
+		if(i_key_2) begin
 			state_w = S_RECD_PAUSE;
 		end
-		else if(i_key_2) begin
+		else if(i_key_1) begin
 			state_w = S_RECD_FIN;
 		end
-		else if(addr_record === 20'b1111_1111_1111_1111_1111_1111) begin
+		else if(addr_record === 20'b0000_0000_1111_1111_1111) begin
 			state_w = S_RECD_FIN;
 		end
 		else begin
@@ -229,7 +233,7 @@ always_comb begin
 		if(i_key_0) begin
 			state_w = S_RECD;
 		end
-		else if(i_key_2) begin
+		else if(i_key_1) begin
 			state_w = S_RECD_FIN;
 		end
 		else begin
@@ -283,8 +287,9 @@ always_comb begin
 	endcase
 end
 
-always_ff @(posedge i_AUD_BCLK or negedge i_rst_n or posedge i_key_0) begin
+always_ff @(posedge i_AUD_BCLK or negedge i_rst_n) begin
 	if (!i_rst_n) begin
+		// state_r <= S_I2C;
 		state_r <= S_I2C;
 		i2c_start <= 1'b1;
 		counter_r <= 32'd0;
