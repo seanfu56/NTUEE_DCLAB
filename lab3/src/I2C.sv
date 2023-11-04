@@ -1,188 +1,176 @@
-module AudDSP(
-    input i_rst_n,
+module I2cInitializer(
+	input i_rst_n,
     input i_clk,
     input i_start,
-    input i_pause,
-    input i_stop,
-    input i_speed,
-    input i_fast,
-    input i_slow_0,
-    input i_slow_1,
-    input i_daclrck,
-    input i_sram_data,
-    output o_dac_data,
-    output o_sram_addr
+    output o_finished,
+    output o_sclk,
+    output o_sdat,
+    output o_oen
 );
 
-localparam S_IDLE = 0;
-localparam S_FAST = 1;
-localparam S_SLOW_ZERO = 2;
-localparam S_SLOW_LINEAR = 3;
+localparam S_IDLE = 1'b0;
+localparam S_START = 1'b1;
+
+localparam RESET = 24'b0011_0100_000_1111_0_0000_0000; // reset
+localparam AAPC  = 24'b0011_0100_000_0100_0_0001_0101; // analogue audio path control
+localparam DAPC  = 24'b0011_0100_000_0101_0_0000_0000; // digital audio path control
+localparam PDC   = 24'b0011_0100_000_0110_0_0000_0000; // power down control
+localparam DAIF  = 24'b0011_0100_000_0111_0_0100_0010; // digital audio interface format
+localparam SC    = 24'b0011_0100_000_1000_0_0001_1001; // sampling control
+localparam AC    = 24'b0011_0100_000_1001_0_0000_0001; // active control
 
 logic state_r, state_w;
-logic [19:0] addr_r, addr_w;
-logic [19:0] outaddr_r, outaddr_w;
-logic [3:0] count_r, count_w;
-logic [15:0] out_data_r, out_data_w;
-logic signed [15:0] rec1_r, rec1_w;
-logic signed [15:0] rec2_r, rec2_w;
-logic signed [15:0] rec3_r, rec3_w;
+logic o_finished_r, o_finished_w;
+logic o_sclk_r, o_sclk_w;
+logic o_sdat_r, o_sdat_w;
+logic o_oen_r, o_oen_w;
+logic [2:0] sentence_r, sentence_w;
+logic [4:0] bit_r, bit_w;
+logic [1:0] clk_counter_r, clk_counter_w;
 
-assign o_dac_data == (i_daclrck == 0) ? o_dac_data_w : 16'bZ;;
-assign o_sram_addr = outaddr_r;
+assign o_finished = o_finished_r;
+assign o_sclk     = o_sclk_r;
+assign o_sdat     = o_sdat_r;
+assign o_oen      = o_oen_r;
 
 always_comb begin
-    case(state_r)
-    S_IDLE: begin
-        addr_w = addr_r;
-        count_w = count_r;
-        rec1_w = rec1_r;
-        rec2_w = rec2_r;
-        rec3_w = rec3_r;
-        out_data_w = out_data_r;
-        outaddr_w = outaddr_r;
-        if(i_start == 1) begin
-            if(i_fast == 1) begin
-                state_w = S_FAST;
-            end
-            else if(i_slow_0 == 1) begin
-                state_w = S_SLOW_ZERO;
-            end
-            else if(i_slow_1 == 1) begin
-                state_w = S_SLOW_LINEAR;
+    case(state_r) 
+        S_IDLE: begin
+            if(i_start) begin
+                state_w = S_START;
+                o_finished_w = o_finished_r;
+                o_sclk_w = o_sclk_r;
+                o_sdat_w = o_sdat_r;
+                o_oen_w = o_oen_r;
+                sentence_w = sentence_r;
+                bit_w = bit_r;
+                clk_counter_w = clk_counter_r;
             end
             else begin
+                state_w = S_IDLE;
+                o_finished_w = o_finished_r;
+                o_sclk_w = o_sclk_r;
+                o_sdat_w = o_sdat_r;
+                o_oen_w = o_oen_r;
+                sentence_w = sentence_r;
+                bit_w = bit_r;
+                clk_counter_w = clk_counter_r;
+            end
+        end
+        S_START: begin
+            if(clk_counter_r === 2'd0) begin
+                clk_counter_w = 2'd1;
+                o_sclk_w = 1'b1;
+                bit_w = bit_r;
+                sentence_w = sentence_r;
+                o_sdat_w = o_sdat_r;
+                o_finished_w = o_finished_r;
                 state_w = state_r;
+                o_oen_w = o_oen_r;
             end
-        end
-        else begin
-            state_w = state_r;
-        end
-    end
-    S_FAST: begin
-        count_w = count_r;
-        rec1_w = rec1_r;
-        rec2_w = rec2_r;
-        rec3_w = rec3_r;
-        if(i_pause == 1)begin
-            state_w = state_r;
-            addr_w = addr_r;
-            out_data_w = 16'bZ;
-            outaddr_w = addr_r;
-        end
-        else if(i_stop == 1)begin
-            state_w = S_IDLE;
-            addr_w = 20'b0;
-            out_data_w = 16'bZ;
-            outaddr_w = 20'b0;
-        end
-        else begin
-            state_w = state_r;
-            addr_w = addr_r + i_speed + 1;
-            out_data_w = i_sram_data;
-            outaddr_w = addr_r + i_speed + 1;
-        end
-    end
-    S_SLOW_ZERO: begin
-        rec1_w = rec1_r;
-        rec2_w = rec2_r;
-        rec3_w = rec3_r;
-        if(i_pause == 1)begin
-            state_w = state_r;
-            addr_w = addr_r;
-            count_w = count_r;
-            out_data_w = 16'bZ;
-            outaddr_w = addr_r;
-        end
-        else if(i_stop == 1)begin
-            state_w = S_IDLE;
-            addr_w = 20'b0;
-            count_w = 4'b0;
-            out_data_w = 16'bZ;
-            outaddr_w = 20'b0;
-        end
-        else begin
-            state_w = state_r;
-            if(count_r + 1 > i_speed)begin
-                addr_w = addr_r + 1;
-                count_w = 4'b0;
-                out_data_w = i_sram_data;
-                outaddr_w = addr_r + 1;
+            else if(clk_counter_r === 2'd1)begin
+                clk_counter_w = 2'd2;
+                o_sclk_w = 1'b0;
+                bit_w = bit_r;
+                sentence_w = sentence_r;
+                o_sdat_w = o_sdat_r;
+                o_finished_w = o_finished_r;
+                state_w = state_r;
+                o_oen_w = o_oen_r;
             end
             else begin
-                addr_w = addr_r;
-                count_w = count_r + 1;
-                out_data_w = i_sram_data;
-                outaddr_w = addr_r;
+                clk_counter_w = 2'd0;
+                o_sclk_w = 1'b0;
+                if(o_oen_r && bit_r % 8 === 0 && (bit_r !== 0 || (bit_r === 0 && sentence_r !== 0)) ) begin
+                    o_oen_w = 1'b0;
+                    o_sdat_w = 1'bz;
+                    state_w = state_r;
+                    o_finished_w = o_finished_r;
+                    if(bit_r === 5'd24) begin
+                        bit_w = 0;
+                        sentence_w = sentence_r + 1;
+                    end
+                    else begin
+                        bit_w = bit_r;
+                        sentence_w = sentence_r;
+                    end
+                end
+                else begin
+                    o_oen_w = 1'b1;
+                    if(sentence_r != 3'd7) begin
+                        bit_w = bit_r + 1;
+                        sentence_w = sentence_r;
+                        o_finished_w = o_finished_r;
+                        state_w = state_r;
+                        case(sentence_r) 
+                            3'd0: begin
+                                o_sdat_w = RESET[23-bit_r];
+                            end
+                            3'd1: begin
+                                o_sdat_w = AAPC[23-bit_r];
+                            end
+                            3'd2: begin
+                                o_sdat_w = DAPC[23-bit_r];
+                            end
+                            3'd3: begin
+                                o_sdat_w = PDC[23-bit_r];
+                            end
+                            3'd4: begin
+                                o_sdat_w = DAIF[23-bit_r];
+                            end
+                            3'd5: begin
+                                o_sdat_w = SC[23-bit_r];
+                            end
+                            3'd6: begin
+                                o_sdat_w = AC[23-bit_r];
+                            end
+                            default: begin
+                                o_sdat_w = o_sdat_r;
+                            end
+                        endcase
+                    end
+                    else if(sentence_r === 3'd7) begin
+                        bit_w = bit_r;
+                        sentence_w = sentence_r;
+                        o_sdat_w = o_sdat_r;
+                        o_finished_w = 1'b1;
+                        state_w = S_IDLE;
+                    end
+                    else begin
+                        bit_w = bit_r;
+                        sentence_w = sentence_r;
+                        o_sdat_w = o_sdat_r;
+                        o_finished_w = o_finished_r;
+                        state_w = state_r;
+                    end
+                end
             end
         end
-    end
-    S_SLOW_LINEAR: begin
-        if(i_pause == 1)begin
-            state_w = state_r;
-            addr_w = addr_r;
-            count_w = count_r;
-            rec1_w = rec1_r;
-            rec2_w = rec2_r;
-            rec3_w = rec3_r;
-            out_data_w = 16'bZ;
-            outaddr_w = addr_r;
-        end
-        else if(i_stop == 1)begin
-            state_w = S_IDLE;
-            addr_w = 20'b0;
-            count_w = 4'b0;
-            rec1_w = 16'b0;
-            rec2_w = 16'b0;
-            rec3_w = 16'b0;        
-            out_data_w = 16'bZ;
-            outaddr_w = 20'b0;
-        end
-        else begin
-            state_w = state_r;
-            if(count_r + 1 > i_speed)begin
-                addr_w = addr_r + 1;
-                count_w = 4'b0;
-                out_data_w = $signed(out_data_r) + $signed(rec1_r) - $signed(rec2_r);
-                outaddr_w = addr_r + 1;
-                rec1_w = ($signed(i_sram_data) / ($signed(i_speed) + 1));
-                rec2_w = ($signed(rec3_r) / ($signed(i_speed) + 1));
-                rec3_w = i_sram_data;
-            end
-            else begin
-                addr_w = addr_r;
-                count_w = count_r + 1;
-                out_data_w = $signed(out_data_r) + $signed(rec1_r) - $signed(rec2_r);
-                outaddr_w = addr_r;
-                rec1_w = rec1_r;
-                rec2_w = rec2_r;
-                rec3_w = rec3_r;
-            end
-        end
-    end 
     endcase
 end
 
-always_ff @(posedge i_clk, negedge i_rst_n) begin
+always_ff @(posedge i_clk or negedge i_rst_n) begin
     if(!i_rst_n) begin
-        state_r <= S_IDLE;
-        addr_r <= 20'b0;
-        count_r <= 4'b0;
-        rec1_r <= 16'b0;
-        rec2_r <= 16'b0;
-        rec3_r <= 16'b0;
-        out_data_r <= 16'bZ;
-        outaddr_r <= 20'b0;
+        state_r       <= S_IDLE;
+        o_finished_r  <= 1'b0;
+        o_sclk_r      <= 1'b1;
+        o_sdat_r      <= 1'b1;
+        o_oen_r       <= 1'b1;
+        sentence_r    <= 3'd0;
+        bit_r         <= 5'd0;
+        // counter_r     <= 16'd0;
+        clk_counter_r <= 2'd0;
     end
     else begin
-        state_r = state_w;
-        addr_r <= addr_w;
-        count_r <= count_w;
-        rec1_r <= rec1_w;
-        rec2_r <= rec2_w;
-        rec3_r <= rec3_w;
-        out_data_r <= out_data_w;
-        outaddr_r <= outaddr_w;
+        state_r       <= state_w;
+        o_finished_r  <= o_finished_w;
+        o_sclk_r      <= o_sclk_w;
+        o_sdat_r      <= o_sdat_w;
+        o_oen_r       <= o_oen_w;
+        sentence_r    <= sentence_w;
+        bit_r         <= bit_w;
+        // counter_r     <= counter_w;
+        clk_counter_r <= clk_counter_w;
     end
 end
 

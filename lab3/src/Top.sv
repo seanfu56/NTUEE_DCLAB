@@ -25,7 +25,7 @@ module Top (
 	inout  i_AUD_ADCLRCK,
 	inout  i_AUD_BCLK,
 	inout  i_AUD_DACLRCK,
-	output o_AUD_DACDAT
+	output o_AUD_DACDAT,
 
 	// SEVENDECODER (optional display)
 	// output [5:0] o_record_time,
@@ -33,6 +33,9 @@ module Top (
 	output [6:0] o_speed,
 	output [6:0] o_sample,
 	output [6:0] o_fast_or_slow,
+	output [6:0] o_ten,
+	output [6:0] o_one,
+	output [2:0] o_state
 
 	// LCD (optional display)
 	// input        i_clk_800k,
@@ -61,6 +64,7 @@ logic i2c_oen, i2c_sdat;
 logic [19:0] addr_record, addr_play;
 logic [15:0] data_record, data_play, dac_data;
 
+
 assign io_I2C_SDAT = (i2c_oen) ? i2c_sdat : 1'bz;
 
 assign o_SRAM_ADDR = (state_r == S_RECD) ? addr_record : addr_play[19:0];
@@ -78,18 +82,31 @@ assign o_SRAM_UB_N = 1'b0;
 
 
 //TODO
+
+parameter freq = 32'd50000000;
 // logic [3:0] speed_r, speed_w;
-logic display_mode_r, display_mode_w;     //high speed or low speed
-logic display_sample_r, display_sample_w; //constant or linear
+// logic display_mode_r, display_mode_w;     //high speed or low speed
+// logic display_sample_r, display_sample_w; //constant or linear
 logic [2:0] state_r, state_w;
 logic i2c_start;
 logic i2c_finished;
-logic o_speed_w, o_fast_or_slow_w, o_smaple_w;
+logic [6:0] o_speed_w, o_fast_or_slow_w, o_smaple_w, o_ten_w, o_one_w, o_state_w;
+logic [31:0] counter_w, counter_r;
+logic [6:0] seconds_w, seconds_r;
 
 assign o_speed = o_speed_w;
 assign o_fast_or_slow = o_fast_or_slow_w;
-assign o_sample= = o_smaple_w;
+assign o_sample = o_smaple_w;
+assign o_ten = o_ten_w;
+assign o_one = o_one_w;
+assign o_state = o_state_w;
+
 //FINISH
+
+// Int_to_seven int1(
+// 	.number(state_r),
+// 	.seven(o_state_w)
+// );
 
 // === I2cInitializer ===
 // sequentially sent out settings to initialize WM8731 with I2C protocal
@@ -154,10 +171,19 @@ Seven seven0(
 	.o_sample(o_smaple_w)
 );
 
+Counter counter0(
+	.i_clk(i_clk),
+	.i_rst_n(i_rst_n),
+	.o_ten(o_ten_w),
+	.o_one(o_one_w)
+);
+
 always_comb begin
 	// design your control here
 	case(state_r) 
 	S_I2C: begin
+		counter_w = 32'd0;
+		seconds_w = 7'd0;
 		if(i2c_finished) begin
 			state_w = S_IDLE;
 		end
@@ -166,6 +192,8 @@ always_comb begin
 		end
 	end
 	S_IDLE: begin
+		counter_w = 32'd0;
+		seconds_w = 7'd0;
 		if(i_key_0) begin
 			state_w = S_RECD;
 		end
@@ -174,6 +202,14 @@ always_comb begin
 		end
 	end
 	S_RECD: begin
+		if(counter_r === freq) begin
+			counter_w = 32'd0;
+			seconds_w = seconds_r + 1;
+		end
+		else begin
+			counter_w = counter_r + 1;
+			seconds_w = seconds_r;
+		end
 		if(i_key_1) begin
 			state_w = S_RECD_PAUSE;
 		end
@@ -188,6 +224,8 @@ always_comb begin
 		end
 	end
 	S_RECD_PAUSE: begin
+		counter_w = counter_r;
+		seconds_w = seconds_r;
 		if(i_key_0) begin
 			state_w = S_RECD;
 		end
@@ -199,6 +237,8 @@ always_comb begin
 		end
 	end
 	S_RECD_FIN: begin
+		counter_w = 32'd0;
+		seconds_w = 7'd0;
 		if(i_key_0) begin
 			state_w = S_PLAY;
 		end
@@ -207,10 +247,18 @@ always_comb begin
 		end
 	end
 	S_PLAY: begin
+		if(counter_r === freq) begin
+			counter_w = 32'd0;
+			seconds_w = seconds_r + 1;
+		end
+		else begin
+			counter_w = counter_r + 1;
+			seconds_w = seconds_r;
+		end
 		if(i_key_1) begin
 			state_w = S_PLAY_PAUSE;
 		end
-		else(i_key_2) begin
+		else if(i_key_2) begin
 			state_w = S_RECD_FIN;
 		end
 		else begin
@@ -218,10 +266,12 @@ always_comb begin
 		end
 	end
 	S_PLAY_PAUSE: begin
+		counter_w = counter_r;
+		seconds_w = seconds_r;
 		if(i_key_0) begin
 			state_w = S_PLAY;
 		end
-		else(i_key_2) begin
+		else if(i_key_2) begin
 			state_w = S_RECD_FIN;
 		end
 		else begin
@@ -237,10 +287,12 @@ always_ff @(posedge i_AUD_BCLK or negedge i_rst_n or posedge i_key_0) begin
 	if (!i_rst_n) begin
 		state_r <= S_I2C;
 		i2c_start <= 1'b1;
+		counter_r <= 32'd0;
 	end
 	else begin
 		state_r <= state_w;
 		i2c_start <= 1'b1;
+		counter_r <= counter_w;
 	end
 end
 

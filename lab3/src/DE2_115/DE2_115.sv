@@ -138,6 +138,12 @@ module DE2_115 (
 
 logic key0down, key1down, key2down, key3down;
 logic CLK_12M, CLK_100K, CLK_800K;
+logic [2:0] state_w;
+
+Int_to_seven int0(
+	.number(state_w),
+	.seven(HEX5)
+);
 
 assign AUD_XCK = CLK_12M;
 
@@ -146,7 +152,7 @@ Altpll pll0( // generate with qsys, please follow lab2 tutorials
 	.reset_reset_n(key3down),
 	.altpll_12m_clk(CLK_12M),
 	.altpll_100k_clk(CLK_100K),
-	.altpll_800k_clk(CLK_800K)
+	// .altpll_800k_clk(CLK_800K)
 );
 
 // you can decide key down settings on your own, below is just an example
@@ -204,7 +210,11 @@ Top top0(
 	// .o_record_time(recd_time),
 	// .o_play_time(play_time),
 	.o_speed(HEX0),
-	.o_fast_or_slow(HEX1)
+	.o_fast_or_slow(HEX2),
+	.o_sample(HEX1),
+	.o_ten(HEX7),
+	.o_one(HEX6),
+	.o_state(state_w)
 
 	// LCD (optional display)
 	// .i_clk_800k(CLK_800K),

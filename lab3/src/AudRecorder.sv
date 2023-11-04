@@ -6,8 +6,8 @@ module AudRecorder(
     input i_pause, 
     input i_stop,
     input i_data,
-    output o_address[19:0],
-    output o_data[15:0]
+    output [19:0] o_address,
+    output [15:0] o_data
 );
 
 localparam S_IDLE = 3'd0;
@@ -17,10 +17,10 @@ localparam S_WAIT = 3'd3;
 localparam S_STOP = 3'd4;
 
 
-logic state_r[2:0],state_w[2:0];
-logic counter_r[4:0],counter_w[4:0];  
-logic o_address_r[19:0],o_address_w[19:0];
-logic o_data_r[15:0],o_data_w[15:0];
+logic [2:0] state_r, state_w;
+logic [4:0] counter_r, counter_w;  
+logic [19:0] o_address_r, o_address_w;
+logic [15:0] o_data_r, o_data_w;
 
 assign o_addres = o_address_r;
 assign o_data = o_data_r;
@@ -68,7 +68,7 @@ always_comb begin
             end
         end
         S_PAUSE: begin 
-            if(start) begin
+            if(i_start) begin
                 state_w     = S_RECORD;
                 counter_w   = counter_r;
                 o_data_w    = 16'd0;

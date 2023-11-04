@@ -30,7 +30,7 @@ logic signed [15:0] rec3_r, rec3_w;
 
 // assign o_dac_data = out_data_r;
 assign o_sram_addr = outaddr_r;
-assign o_dac_data = (i_daclrck == 0) ? o_dac_data_r : 16'bz;
+assign o_dac_data = (i_daclrck == 0) ? outaddr_r : 16'bz;
 
 always_comb begin
     case(state_r)
