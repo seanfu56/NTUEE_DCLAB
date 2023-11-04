@@ -4,7 +4,7 @@ module Top (
 	input i_key_0,
 	input i_key_1,
 	input i_key_2,
-	input [3:0] i_speed, // design how user can decide mode on your own
+	input [4:0] i_speed, // design how user can decide mode on your own
 	
 	// AudDSP and SRAM
 	output [19:0] o_SRAM_ADDR,
@@ -31,6 +31,7 @@ module Top (
 	// output [5:0] o_record_time,
 	// output [5:0] o_play_time,
 	output [6:0] o_speed,
+	output [6:0] o_sample,
 	output [6:0] o_fast_or_slow,
 
 	// LCD (optional display)
@@ -76,12 +77,17 @@ assign o_SRAM_UB_N = 1'b0;
 
 
 //TODO
-logic [3:0] speed_r, speed_w;
+// logic [3:0] speed_r, speed_w;
 logic display_mode_r, display_mode_w;     //high speed or low speed
 logic display_sample_r, display_sample_w; //constant or linear
 logic [2:0] state_r, state_w;
 logic i2c_start;
 logic i2c_finished;
+logic o_speed_w, o_fast_or_slow_w, o_smaple_w;
+
+assign o_speed = o_speed_w;
+assign o_fast_or_slow = o_fast_or_slow_w;
+assign o_sample= = o_smaple_w;
 //FINISH
 
 // === I2cInitializer ===
@@ -101,14 +107,14 @@ I2cInitializer init0(
 // in other words, determine which data addr to be fetch for player 
 AudDSP dsp0(
 	.i_rst_n(i_rst_n),
-	.i_clk(),
-	.i_start(),
-	.i_pause(),
-	.i_stop(),
-	.i_speed(speed_r),
-	.i_fast(),
-	.i_slow_0(), // constant interpolation
-	.i_slow_1(), // linear interpolation
+	.i_clk(i_clk),
+	.i_start(state_r === S_PLAY),
+	.i_pause(state_r === S_PLAY_PAUSE),
+	.i_stop(!i_rst_n),
+	.i_speed(i_speed[2:0]),
+	.i_fast(i_speed[4]),
+	.i_slow_0(i_speed[3]), // constant interpolation
+	.i_slow_1(!i_speed[3]), // linear interpolation
 	.i_daclrck(i_AUD_DACLRCK),
 	.i_sram_data(data_play),
 	.o_dac_data(dac_data),
@@ -140,8 +146,12 @@ AudRecorder recorder0(
 	.o_data(data_record),
 );
 
-
-
+Seven seven0(
+	.i_speed(i_speed),
+	.o_fast_or_slow(o_fast_or_slow_w),
+	.o_speed(o_speed_w),
+	.o_sample(o_smaple_w)
+)
 
 always_comb begin
 	// design your control here

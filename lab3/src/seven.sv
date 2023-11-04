@@ -1,7 +1,8 @@
 module Seven(
-    input [3:0] i_speed,
+    input [4:0] i_speed,
     output [6:0] o_fast_or_slow,
-    output [6:0] o_speed
+    output [6:0] o_speed,
+    output [6:0] o_sample
 );
 
 parameter D0 = 7'b1000000;
@@ -17,7 +18,8 @@ parameter D9 = 7'b0010000;
 
 logic [6:0] o_speed_w;
 
-assign o_fast_or_slow = i_speed[3] ? 7'b0001110 : 7'b0010010;
+assign o_fast_or_slow = i_speed[4] ? 7'b0001110 : 7'b0010010;
+assign o_sample = i_speed[4] ? 7'b1111111 : (i_speed[3] ? 7'b1000110 : 7'b1000111);
 assign o_speed = o_speed_w;
 
 always_comb begin
