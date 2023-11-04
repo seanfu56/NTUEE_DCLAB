@@ -8,8 +8,9 @@ module I2cInitializer(
     output o_oen
 );
 
-localparam S_IDLE = 1'b0;
-localparam S_START = 1'b1;
+localparam S_IDLE = 2'b00;
+localparam S_START = 2'b01;
+localparam S_FIN = 2'b10;
 
 localparam RESET = 24'b0011_0100_000_1111_0_0000_0000; // reset
 localparam AAPC  = 24'b0011_0100_000_0100_0_0001_0101; // analogue audio path control
@@ -19,14 +20,13 @@ localparam DAIF  = 24'b0011_0100_000_0111_0_0100_0010; // digital audio interfac
 localparam SC    = 24'b0011_0100_000_1000_0_0001_1001; // sampling control
 localparam AC    = 24'b0011_0100_000_1001_0_0000_0001; // active control
 
-logic state_r, state_w;
+logic [1:0] state_r, state_w;
 logic o_finished_r, o_finished_w;
 logic o_sclk_r, o_sclk_w;
 logic o_sdat_r, o_sdat_w;
 logic o_oen_r, o_oen_w;
 logic [2:0] sentence_r, sentence_w;
 logic [4:0] bit_r, bit_w;
-// logic [15:0] counter_r, counter_w;
 logic [1:0] clk_counter_r, clk_counter_w;
 
 assign o_finished = o_finished_r;
@@ -125,7 +125,7 @@ always_comb begin
                         sentence_w = sentence_r;
                         o_sdat_w = o_sdat_r;
                         o_finished_w = 1'b1;
-                        state_w = S_IDLE;
+                        state_w = S_FIN;
                     end
                     else begin
                         bit_w = bit_r;
@@ -144,7 +144,16 @@ always_comb begin
                 state_w = state_r;
                 o_oen_w = o_oen_r;
             end
-
+        end
+        S_FIN: begin
+            state_w = S_FIN;
+            o_finished_w = o_finished_r;
+            o_sclk_w = o_sclk_r;
+            o_sdat_w = o_sdat_r;
+            o_oen_w = o_oen_r;
+            sentence_w = sentence_r;
+            bit_w = bit_r;
+            clk_counter_w = clk_counter_r;
         end
     endcase
 end
@@ -158,7 +167,6 @@ always_ff @(posedge i_clk_100K or negedge i_rst_n) begin
         o_oen_r       <= 1'b1;
         sentence_r    <= 3'd0;
         bit_r         <= 5'd0;
-        // counter_r     <= 16'd0;
         clk_counter_r <= 2'd0;
     end
     else begin
@@ -169,7 +177,6 @@ always_ff @(posedge i_clk_100K or negedge i_rst_n) begin
         o_oen_r       <= o_oen_w;
         sentence_r    <= sentence_w;
         bit_r         <= bit_w;
-        // counter_r     <= counter_w;
         clk_counter_r <= clk_counter_w;
     end
 end

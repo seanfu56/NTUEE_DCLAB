@@ -4,7 +4,7 @@ module Top (
 	input i_key_0,
 	input i_key_1,
 	input i_key_2,
-	// input [3:0] i_speed, // design how user can decide mode on your own
+	input [3:0] i_speed, // design how user can decide mode on your own
 	
 	// AudDSP and SRAM
 	output [19:0] o_SRAM_ADDR,
@@ -30,6 +30,8 @@ module Top (
 	// SEVENDECODER (optional display)
 	// output [5:0] o_record_time,
 	// output [5:0] o_play_time,
+	output [6:0] o_speed,
+	output [6:0] o_fast_or_slow,
 
 	// LCD (optional display)
 	// input        i_clk_800k,
@@ -46,8 +48,8 @@ module Top (
 );
 
 // design the FSM and states as you like
-parameter S_IDLE       = 0;
-parameter S_I2C        = 1;
+parameter S_I2C        = 0;
+parameter S_IDLE       = 1;
 parameter S_RECD       = 2;
 parameter S_RECD_PAUSE = 3;
 parameter S_PLAY       = 4;
@@ -77,7 +79,9 @@ assign o_SRAM_UB_N = 1'b0;
 logic [3:0] speed_r, speed_w;
 logic display_mode_r, display_mode_w;     //high speed or low speed
 logic display_sample_r, display_sample_w; //constant or linear
-
+logic [2:0] state_r, state_w;
+logic i2c_start;
+logic i2c_finished;
 //FINISH
 
 // === I2cInitializer ===
@@ -85,8 +89,8 @@ logic display_sample_r, display_sample_w; //constant or linear
 I2cInitializer init0(
 	.i_rst_n(i_rst_n),
 	.i_clk(i_clk_100K),
-	.i_start(),
-	.o_finished(),
+	.i_start(i2c_start),
+	.o_finished(i2c_finished),
 	.o_sclk(o_I2C_SCLK),
 	.o_sdat(i2c_sdat),
 	.o_oen(i2c_oen) // you are outputing (you are not outputing only when you are "ack"ing.)
@@ -136,16 +140,73 @@ AudRecorder recorder0(
 	.o_data(data_record),
 );
 
+
+
+
 always_comb begin
 	// design your control here
+	case(state_r) 
+	S_I2C: begin
+		if(i2c_finished) begin
+			state_w = S_IDLE;
+		end
+		else begin
+			state_w = state_r;
+		end
+	end
+	S_IDLE: begin
+		if(i_key_0) begin
+			state_w = S_RECD;
+		end
+		else begin
+			state_w = state_r;
+		end
+	end
+	S_RECD: begin
+		if(i_key_1) begin
+			state_w = S_RECD_PAUSE;
+		end
+		else begin
+			state_w = state_r;
+		end
+	end
+	S_RECD_PAUSE: begin
+		if(i_key_1) begin
+			state_w = S_RECD;
+		end
+		else begin
+			state_w = state_r;
+		end
+	end
+	S_PLAY: begin
+		if(i_key_1) begin
+			state_w = S_PLAY_PAUSE;
+		end
+		else begin
+			state_w = state_r;
+		end
+	end
+	S_PLAY_PAUSE: begin
+		if(i_key_1) begin
+			state_w = S_PLAY;
+		end
+		else begin
+			state_w = state_r;
+		end
+	end
+	default: begin
+	end
+	endcase
 end
 
-always_ff @(posedge i_AUD_BCLK or posedge i_rst_n) begin
+always_ff @(posedge i_AUD_BCLK or negedge i_rst_n or posedge i_key_0) begin
 	if (!i_rst_n) begin
-		
+		state_r <= S_I2C;
+		i2c_start <= 1'b1;
 	end
 	else begin
-		
+		state_r <= state_w;
+		i2c_start <= 1'b1;
 	end
 end
 
