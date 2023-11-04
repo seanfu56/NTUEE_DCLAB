@@ -10,10 +10,12 @@ module AudRecorder(
     output o_data[15:0]
 );
 
-localparam S_IDLE = 2'd0;
-localparam S_RECORD = 2'd1;
-localparam S_PAUSE = 2'd2;
-localparam S_WAIT = 2'd3;
+localparam S_IDLE = 3'd0;
+localparam S_RECORD = 3'd1;
+localparam S_PAUSE = 3'd2;
+localparam S_WAIT = 3'd3;
+localparam S_STOP = 3'd4;
+
 
 logic state_r[2:0],state_w[2:0];
 logic counter_r[4:0],counter_w[4:0];  
@@ -47,7 +49,7 @@ always_comb begin
                 o_address_w = o_address_r;
             end
             else if(i_stop) begin
-                state_w   = S_IDLE;
+                state_w   = S_STOP;
                 counter_w = 5'd0;
                 o_data_w  = 16'd0;
                 o_address_w = o_address_r;
@@ -66,17 +68,17 @@ always_comb begin
             end
         end
         S_PAUSE: begin 
-            if(!i_pause) begin
+            if(start) begin
                 state_w     = S_RECORD;
                 counter_w   = counter_r;
                 o_data_w    = 16'd0;
                 o_address_w = o_address_r;
             end
             else if(i_stop) begin
-                state_w     = S_IDLE;
+                state_w     = S_STOP;
                 counter_w   = 5'd0;
                 o_data_w    = 16'd0;
-                o_address_w = 20'd0;
+                o_address_w =o_address_r;
             end
             else begin 
                 state_w     = S_PAUSE;
@@ -98,6 +100,13 @@ always_comb begin
                 o_data_w    = 16'd0;
                 o_address_w = o_address_r;
             end
+        end
+        S_STOP: begin
+            state_w     = state_r;
+            counter_w   = counter_r; 
+            o_data_w    = 16'd0;
+            o_address_w = o_address_r;
+            
         end
         
 

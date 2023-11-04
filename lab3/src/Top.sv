@@ -53,8 +53,9 @@ parameter S_I2C        = 0;
 parameter S_IDLE       = 1;
 parameter S_RECD       = 2;
 parameter S_RECD_PAUSE = 3;
-parameter S_PLAY       = 4;
-parameter S_PLAY_PAUSE = 5;
+parameter S_RECD_FIN   = 4;
+parameter S_PLAY       = 5;
+parameter S_PLAY_PAUSE = 6;
 
 logic i2c_oen, i2c_sdat;
 logic [19:0] addr_record, addr_play;
@@ -110,7 +111,7 @@ AudDSP dsp0(
 	.i_clk(i_clk),
 	.i_start(state_r === S_PLAY),
 	.i_pause(state_r === S_PLAY_PAUSE),
-	.i_stop(!i_rst_n),
+	.i_stop(state_r === S_RECD_FIN),
 	.i_speed(i_speed[2:0]),
 	.i_fast(i_speed[4]),
 	.i_slow_0(i_speed[3]), // constant interpolation
@@ -127,7 +128,7 @@ AudPlayer player0(
 	.i_rst_n(i_rst_n),
 	.i_bclk(i_AUD_BCLK),
 	.i_daclrck(i_AUD_DACLRCK),
-	.i_en(), // enable AudPlayer only when playing audio, work with AudDSP
+	.i_en(state_r === S_PLAY), // enable AudPlayer only when playing audio, work with AudDSP
 	.i_dac_data(dac_data), //dac_data
 	.o_aud_dacdat(o_AUD_DACDAT)
 );
@@ -138,9 +139,9 @@ AudRecorder recorder0(
 	.i_rst_n(i_rst_n), 
 	.i_clk(i_AUD_BCLK),
 	.i_lrc(i_AUD_ADCLRCK),
-	.i_start(),
-	.i_pause(),
-	.i_stop(),
+	.i_start(state_r === S_RECD),
+	.i_pause(state_r === S_RECD_PAUSE),
+	.i_stop(state_r === S_RECD_FIN),
 	.i_data(i_AUD_ADCDAT),
 	.o_address(addr_record),
 	.o_data(data_record),
@@ -151,7 +152,7 @@ Seven seven0(
 	.o_fast_or_slow(o_fast_or_slow_w),
 	.o_speed(o_speed_w),
 	.o_sample(o_smaple_w)
-)
+);
 
 always_comb begin
 	// design your control here
@@ -176,13 +177,30 @@ always_comb begin
 		if(i_key_1) begin
 			state_w = S_RECD_PAUSE;
 		end
+		else if(i_key_2) begin
+			state_w = S_RECD_FIN;
+		end
+		else if(addr_record === 20'b1111_1111_1111_1111_1111_1111) begin
+			state_w = S_RECD_FIN;
+		end
 		else begin
 			state_w = state_r;
 		end
 	end
 	S_RECD_PAUSE: begin
-		if(i_key_1) begin
+		if(i_key_0) begin
 			state_w = S_RECD;
+		end
+		else if(i_key_2) begin
+			state_w = S_RECD_FIN;
+		end
+		else begin
+			state_w = state_r;
+		end
+	end
+	S_RECD_FIN: begin
+		if(i_key_0) begin
+			state_w = S_PLAY;
 		end
 		else begin
 			state_w = state_r;
@@ -192,13 +210,19 @@ always_comb begin
 		if(i_key_1) begin
 			state_w = S_PLAY_PAUSE;
 		end
+		else(i_key_2) begin
+			state_w = S_RECD_FIN;
+		end
 		else begin
 			state_w = state_r;
 		end
 	end
 	S_PLAY_PAUSE: begin
-		if(i_key_1) begin
+		if(i_key_0) begin
 			state_w = S_PLAY;
+		end
+		else(i_key_2) begin
+			state_w = S_RECD_FIN;
 		end
 		else begin
 			state_w = state_r;
