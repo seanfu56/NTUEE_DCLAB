@@ -64,7 +64,7 @@ always_ff @(posedge i_bclk or negedge i_rst_n) begin
     if(!i_rst_n) begin
         state_r        <= IDLE;
         counter_r      <= 5'd0;
-        o_aud_dacdat_r <= 16'dZ; /// 不知道要填甚麼給他
+        // o_aud_dacdat_r <= 16'dZ; /// 不知道要填甚麼給他
     end
     else begin
         state_r        <= state_w;

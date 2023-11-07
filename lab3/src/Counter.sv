@@ -1,6 +1,11 @@
 module Counter(
     input i_clk,
     input i_rst_n,
+    input i_record,
+    input i_play,
+    input i_fast,
+    input i_pause,
+    input [2:0] i_speed,
     output [6:0] o_ten,
     output [6:0] o_one
 );
@@ -16,12 +21,13 @@ localparam D7 = 7'b1011000;
 localparam D8 = 7'b0000000;
 localparam D9 = 7'b0010000;
 
-localparam freq = 32'd50000000;
+localparam freq = 32'd12000000;
 logic [3:0] ten;
 logic [3:0] one;
 logic [6:0] o_ten_w, o_one_w;
 logic [31:0] counter_r, counter_w;
 logic [6:0] second_r, second_w;
+logic [3:0] c_r, c_w;
 
 assign one = second_r % 10;
 assign ten = second_r / 10;
@@ -32,10 +38,39 @@ always_comb begin
     if(counter_r === freq) begin
         counter_w = 32'd0;
         second_w = second_r + 1;
+        c_w = c_r;
     end
-    else begin
+    else if(i_record === 1) begin
+        counter_w = counter_r + 1;
+        second_w = second_r;        
+        c_w = c_r;
+    end
+    else if(i_play === 1 && i_fast === 1) begin
+        counter_w = counter_r + 1 + i_speed;
+        second_w = second_r;
+        c_w = c_r;
+    end
+    else if(i_play === 1 && i_fast === 0) begin
+        if(c_r >= i_speed) begin
+            c_w = 0;
+            counter_w = counter_r + 1;
+            second_w = second_r;
+        end
+        else begin
+            c_w = c_r + 1;
+            counter_w = counter_r;
+            second_w = second_r;
+        end
+    end
+    else if(i_pause === 1) begin
         counter_w = counter_r;
         second_w = second_r;
+        c_w = c_r;
+    end
+    else begin
+        counter_w = 0;
+        second_w = 0;
+        c_w = c_r;
     end
     case(one) 
     4'd0: begin
@@ -113,10 +148,12 @@ always_ff @(posedge i_clk, negedge i_rst_n) begin
     if(!i_rst_n) begin
         counter_r <= 32'd0;
         second_r <= 7'd0;
+        c_r <= 4'd0;
     end
     else begin
         counter_r <= counter_w;
         second_r <= second_w;
+        c_r <= c_w;
     end
 end
 

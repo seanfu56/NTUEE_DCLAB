@@ -35,7 +35,7 @@ module Top (
 	output [6:0] o_fast_or_slow,
 	output [6:0] o_ten,
 	output [6:0] o_one,
-	output [2:0] o_state
+	output [2:0] o_state,
 
 	// LCD (optional display)
 	// input        i_clk_800k,
@@ -48,7 +48,7 @@ module Top (
 
 	// LED
 	// output  [8:0] o_ledg,
-	// output [17:0] o_ledr
+	output [17:0] o_ledr
 );
 
 // design the FSM and states as you like
@@ -176,9 +176,20 @@ Seven seven0(
 Counter counter0(
 	.i_clk(i_clk),
 	.i_rst_n(i_rst_n),
+	.i_record(state_r === S_RECD),
+	.i_play(state_r === S_PLAY),
+	.i_fast(i_speed[4]),
+	.i_pause(state_r === S_RECD_PAUSE || state_r === S_PLAY_PAUSE),
+	.i_speed(i_speed),
 	.o_ten(o_ten_w),
 	.o_one(o_one_w)
 );
+
+// LEDVolume led0(
+// 	.i_record(state_r == S_RECD),
+// 	.i_data(data_record),
+// 	.o_led_r(o_ledr)
+// );
 
 always_comb begin
 	// design your control here
@@ -214,13 +225,13 @@ always_comb begin
 		// end
 		counter_w = counter_r;
 		seconds_w = seconds_r;
-		if(i_key_2) begin
+		if(i_key_1) begin
 			state_w = S_RECD_PAUSE;
 		end
-		else if(i_key_1) begin
+		else if(i_key_2) begin
 			state_w = S_RECD_FIN;
 		end
-		else if(addr_record === 20'b0000_0000_1111_1111_1111) begin
+		else if(addr_record === 20'b1111_1111_1111_1111_1110) begin
 			state_w = S_RECD_FIN;
 		end
 		else begin
@@ -233,7 +244,7 @@ always_comb begin
 		if(i_key_0) begin
 			state_w = S_RECD;
 		end
-		else if(i_key_1) begin
+		else if(i_key_2) begin
 			state_w = S_RECD_FIN;
 		end
 		else begin
@@ -265,6 +276,9 @@ always_comb begin
 		else if(i_key_2) begin
 			state_w = S_RECD_FIN;
 		end
+		else if(addr_record < addr_play) begin
+			state_w = S_RECD_FIN;
+		end
 		else begin
 			state_w = state_r;
 		end
@@ -283,6 +297,9 @@ always_comb begin
 		end
 	end
 	default: begin
+		counter_w = counter_r;
+		seconds_w = seconds_r;
+		state_w = state_r;
 	end
 	endcase
 end

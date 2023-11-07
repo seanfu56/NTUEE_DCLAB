@@ -214,7 +214,7 @@ Top top0(
 	.o_sample(HEX1),
 	.o_ten(HEX7),
 	.o_one(HEX6),
-	.o_state(state_w)
+	.o_state(state_w),
 
 	// LCD (optional display)
 	// .i_clk_800k(CLK_800K),
@@ -227,7 +227,7 @@ Top top0(
 
 	// LED
 	// .o_ledg(LEDG), // [8:0]
-	// .o_ledr(LEDR) // [17:0]
+	.o_ledr(LEDR) // [17:0]
 );
 
 // SevenHexDecoder seven_dec0(
@@ -246,8 +246,8 @@ Top top0(
 // assign HEX0 = '1;
 // assign HEX1 = '1;
 // assign HEX2 = '1;
-// assign HEX3 = '1;
-// assign HEX4 = '1;
+assign HEX3 = '1;
+assign HEX4 = '1;
 // assign HEX5 = '1;
 // assign HEX6 = '1;
 // assign HEX7 = '1;
